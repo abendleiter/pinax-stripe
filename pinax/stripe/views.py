@@ -217,10 +217,10 @@ class Webhook(View):
 
         We're simply ignoring these events here, until we can implement a better solution.
         """
-        data_object = data.get('data', {}).get('object', {})
-        if data_object.get('description', '').lower().startswith('ticket purchase'):
+        data_object = (data.get('data') or {}).get('object') or {}
+        if (data_object.get('description') or '').lower().startswith('ticket purchase'):
             return True
-        cus_id = data_object.get('customer', '') or data_object.get('id', '')
-        if cus_id and cus_id.startswith('cus_') and data.get('type', '') != 'customer.created':
+        cus_id = data_object.get('customer') or data_object.get('id') or ''
+        if isinstance(cus_id, str) and cus_id.startswith('cus_') and data.get('type') != 'customer.created':
             return not Customer.objects.filter(stripe_id=cus_id).exists()
         return False
