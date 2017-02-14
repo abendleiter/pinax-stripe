@@ -14,7 +14,7 @@ import stripe
 from .actions import events, exceptions, customers, subscriptions, sources
 from .forms import PlanForm, PaymentMethodForm
 from .mixins import LoginRequiredMixin, CustomerMixin, PaymentsContextMixin
-from .models import Invoice, Card, Subscription
+from .models import Invoice, Card, Subscription, Customer
 
 
 logger = logging.getLogger(__name__)
