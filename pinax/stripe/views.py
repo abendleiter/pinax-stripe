@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -14,6 +15,9 @@ from .actions import events, exceptions, customers, subscriptions, sources
 from .forms import PlanForm, PaymentMethodForm
 from .mixins import LoginRequiredMixin, CustomerMixin, PaymentsContextMixin
 from .models import Invoice, Card, Subscription
+
+
+logger = logging.getLogger(__name__)
 
 
 class InvoiceListView(LoginRequiredMixin, CustomerMixin, ListView):
@@ -192,6 +196,13 @@ class Webhook(View):
         data = self.extract_json()
         if events.dupe_event_exists(data["id"]):
             exceptions.log_exception(data, "Duplicate event record")
+        elif self._is_ticketing_event(data):
+            # ignore the event, we know nothing about ticketing
+            logger.warning(
+                'Webhook discarding ticket event from stripe: %r (object id %r)',
+                data.get('id'),
+                (data.get('object') or {}).get('id')
+            )
         else:
             events.add_event(
                 stripe_id=data["id"],
@@ -200,3 +211,20 @@ class Webhook(View):
                 message=data
             )
         return HttpResponse()
+
+    @staticmethod
+    def _is_ticketing_event(data):
+        """Stripe also calls our webhook for events related to ticketing, which we don't track.
+
+        We can recognize these if they refer to customer ids that don't exist in our database,
+        or if the description starts with ticket purchase.
+
+        We're simply ignoring these events here, until we can implement a better solution.
+        """
+        data_object = data.get('object', {})
+        if data_object.get('description', '').lower().startswith('ticket purchase'):
+            return True
+        cus_id = data_object.get('customer', '') or data_object.get('id', '')
+        if cus_id and cus_id.startswith('cus_') and date.get('type', '') != 'customer.created':
+            return not Customer.objects.filter(stripe_id=cus_id).exists()
+        return False
