@@ -198,11 +198,7 @@ class Webhook(View):
             exceptions.log_exception(data, "Duplicate event record")
         elif self._is_ticketing_event(data):
             # ignore the event, we know nothing about ticketing
-            logger.warning(
-                'Webhook discarding ticket event from stripe: %r (object id %r)',
-                data.get('id'),
-                (data.get('object') or {}).get('id')
-            )
+            logger.warning('Webhook discarding ticket event from stripe: %r', data.get('id'))
         else:
             events.add_event(
                 stripe_id=data["id"],
@@ -221,10 +217,10 @@ class Webhook(View):
 
         We're simply ignoring these events here, until we can implement a better solution.
         """
-        data_object = data.get('object', {})
+        data_object = data.get('data', {}).get('object', {})
         if data_object.get('description', '').lower().startswith('ticket purchase'):
             return True
         cus_id = data_object.get('customer', '') or data_object.get('id', '')
-        if cus_id and cus_id.startswith('cus_') and date.get('type', '') != 'customer.created':
+        if cus_id and cus_id.startswith('cus_') and data.get('type', '') != 'customer.created':
             return not Customer.objects.filter(stripe_id=cus_id).exists()
         return False
